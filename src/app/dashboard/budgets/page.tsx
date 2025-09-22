@@ -64,68 +64,11 @@ export default function BudgetsPage() {
 
   const fetchBudgets = async () => {
     try {
-      // Mock data for now - replace with actual API call
-      const mockBudgets: Budget[] = [
-        {
-          _id: '1',
-          name: 'Monthly Food Budget',
-          category: 'Food',
-          subcategory: 'Groceries',
-          amount: 500,
-          spent: 450,
-          period: {
-            start: '2024-01-01',
-            end: '2024-01-31',
-            type: 'monthly',
-          },
-          isActive: true,
-          alerts: {
-            enabled: true,
-            threshold: 80,
-            notifications: ['email'],
-          },
-          rollover: false,
-        },
-        {
-          _id: '2',
-          name: 'Entertainment Budget',
-          category: 'Entertainment',
-          amount: 200,
-          spent: 180,
-          period: {
-            start: '2024-01-01',
-            end: '2024-01-31',
-            type: 'monthly',
-          },
-          isActive: true,
-          alerts: {
-            enabled: true,
-            threshold: 90,
-            notifications: ['email'],
-          },
-          rollover: false,
-        },
-        {
-          _id: '3',
-          name: 'Transportation Budget',
-          category: 'Transportation',
-          amount: 300,
-          spent: 120,
-          period: {
-            start: '2024-01-01',
-            end: '2024-01-31',
-            type: 'monthly',
-          },
-          isActive: true,
-          alerts: {
-            enabled: true,
-            threshold: 80,
-            notifications: ['email'],
-          },
-          rollover: false,
-        },
-      ];
-      setBudgets(mockBudgets);
+      setLoading(true);
+      const res = await fetch('/api/budgets');
+      if (!res.ok) throw new Error('Failed to load budgets');
+      const data = await res.json();
+      setBudgets(data.budgets || []);
     } catch (error) {
       console.error('Error fetching budgets:', error);
     } finally {
@@ -136,18 +79,42 @@ export default function BudgetsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const budgetData = {
-        ...formData,
+      const budgetData: any = {
+        name: formData.name,
+        category: formData.category,
+        subcategory: formData.subcategory || undefined,
         amount: parseFloat(formData.amount),
-        threshold: parseInt(formData.threshold.toString()),
+        period: {
+          start: formData.periodType === 'custom' ? formData.startDate : formData.startDate || new Date().toISOString().slice(0, 10),
+          end: formData.periodType === 'custom' ? formData.endDate : formData.endDate || new Date().toISOString().slice(0, 10),
+          type: formData.periodType,
+        },
+        alerts: {
+          enabled: formData.alertsEnabled,
+          threshold: Number(formData.threshold),
+          notifications: ['email'],
+        },
+        rollover: formData.rollover,
       };
 
+      let res: Response;
       if (editingBudget) {
-        // Update budget
-        console.log('Updating budget:', budgetData);
+        res = await fetch(`/api/budgets/${editingBudget._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(budgetData),
+        });
       } else {
-        // Add new budget
-        console.log('Adding budget:', budgetData);
+        res = await fetch('/api/budgets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(budgetData),
+        });
+      }
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to save budget');
       }
 
       // Reset form and close dialog
@@ -179,8 +146,8 @@ export default function BudgetsPage() {
       subcategory: budget.subcategory || '',
       amount: budget.amount.toString(),
       periodType: budget.period.type,
-      startDate: budget.period.start,
-      endDate: budget.period.end,
+      startDate: budget.period.start.slice(0, 10),
+      endDate: budget.period.end.slice(0, 10),
       alertsEnabled: budget.alerts.enabled,
       threshold: budget.alerts.threshold,
       rollover: budget.rollover,
@@ -191,7 +158,11 @@ export default function BudgetsPage() {
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this budget?')) {
       try {
-        console.log('Deleting budget:', id);
+        const res = await fetch(`/api/budgets/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Failed to delete budget');
+        }
         fetchBudgets();
       } catch (error) {
         console.error('Error deleting budget:', error);
@@ -501,3 +472,8 @@ export default function BudgetsPage() {
     </div>
   );
 }
+
+
+
+
+

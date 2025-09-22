@@ -5,13 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { 
-  BarChart3, 
   TrendingUp, 
   TrendingDown, 
-  PieChart, 
-  Calendar,
   DollarSign,
-  Target,
   PiggyBank
 } from 'lucide-react';
 
@@ -46,50 +42,114 @@ interface AnalyticsData {
 export default function AnalyticsPage() {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState('month');
+  const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
 
   useEffect(() => {
     fetchAnalyticsData();
   }, [timeRange]);
 
+  const getRangeDates = () => {
+    const end = new Date();
+    const start = new Date();
+    if (timeRange === 'week') start.setDate(end.getDate() - 7);
+    else if (timeRange === 'month') start.setMonth(end.getMonth() - 1);
+    else if (timeRange === 'quarter') start.setMonth(end.getMonth() - 3);
+    else if (timeRange === 'year') start.setFullYear(end.getFullYear() - 1);
+    return {
+      start: start.toISOString().slice(0, 10),
+      end: end.toISOString().slice(0, 10),
+    };
+  };
+
+  const monthLabelsBetween = (start: Date, end: Date) => {
+    const labels: string[] = [];
+    const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+    const stop = new Date(end.getFullYear(), end.getMonth(), 1);
+    while (cur <= stop) {
+      labels.push(cur.toLocaleString('default', { month: 'short' }));
+      cur.setMonth(cur.getMonth() + 1);
+    }
+    return labels;
+  };
+
   const fetchAnalyticsData = async () => {
     try {
-      // Mock data for now - replace with actual API call
-      const mockData: AnalyticsData = {
-        monthlyIncome: 5000,
-        monthlyExpenses: 3200,
-        netIncome: 1800,
-        topCategories: [
-          { category: 'Food', amount: 800, percentage: 25 },
-          { category: 'Transportation', amount: 600, percentage: 18.75 },
-          { category: 'Entertainment', amount: 400, percentage: 12.5 },
-          { category: 'Bills', amount: 350, percentage: 10.94 },
-          { category: 'Shopping', amount: 300, percentage: 9.38 },
-        ],
-        spendingTrend: [
-          { month: 'Jan', income: 5000, expenses: 3200 },
-          { month: 'Feb', income: 5200, expenses: 3100 },
-          { month: 'Mar', income: 4800, expenses: 3400 },
-          { month: 'Apr', income: 5100, expenses: 3000 },
-          { month: 'May', income: 5300, expenses: 3300 },
-          { month: 'Jun', income: 5000, expenses: 3200 },
-        ],
-        budgetPerformance: [
-          { category: 'Food', budgeted: 500, spent: 450, percentage: 90 },
-          { category: 'Transportation', budgeted: 300, spent: 280, percentage: 93.33 },
-          { category: 'Entertainment', budgeted: 200, spent: 180, percentage: 90 },
-          { category: 'Shopping', budgeted: 150, spent: 120, percentage: 80 },
-        ],
-        goalProgress: [
-          { title: 'Emergency Fund', current: 3500, target: 10000, percentage: 35 },
-          { title: 'Vacation Fund', current: 1200, target: 5000, percentage: 24 },
-          { title: 'New Laptop', current: 2500, target: 2500, percentage: 100 },
-        ],
-      };
-      
-      setAnalyticsData(mockData);
+      setLoading(true);
+      const { start, end } = getRangeDates();
+
+      const [txRes, budgetsRes, goalsRes] = await Promise.all([
+        fetch(`/api/transactions?startDate=${start}&endDate=${end}&limit=1000`),
+        fetch('/api/budgets'),
+        fetch('/api/goals'),
+      ]);
+
+      if (!txRes.ok || !budgetsRes.ok || !goalsRes.ok) throw new Error('Failed to load analytics');
+
+      const txData = await txRes.json();
+      const budgetsData = await budgetsRes.json();
+      const goalsData = await goalsRes.json();
+
+      const transactions = (txData.transactions || []) as any[];
+      const budgets = (budgetsData.budgets || []) as any[];
+      const goals = (goalsData.goals || []) as any[];
+
+      const incomeTx = transactions.filter(t => t.type === 'income');
+      const expenseTx = transactions.filter(t => t.type === 'expense');
+
+      const monthlyIncome = incomeTx.reduce((s, t) => s + t.amount, 0);
+      const monthlyExpenses = expenseTx.reduce((s, t) => s + t.amount, 0);
+      const netIncome = monthlyIncome - monthlyExpenses;
+
+      const categoryTotals: Record<string, number> = {};
+      for (const t of expenseTx) {
+        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+      }
+      const totalExpenses = Object.values(categoryTotals).reduce((s, v) => s + v, 0) || 1;
+      const topCategories = Object.entries(categoryTotals)
+        .map(([category, amount]) => ({ category, amount, percentage: (amount / totalExpenses) * 100 }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 5);
+
+      const startDateObj = new Date(start);
+      const endDateObj = new Date(end);
+      const months = monthLabelsBetween(startDateObj, endDateObj);
+      const spendingTrend = months.map((label) => {
+        // Group per month label
+        const monthIndex = new Date(`${label} 1, ${new Date().getFullYear()}`).getMonth();
+        const income = transactions.filter(t => new Date(t.date).getMonth() === monthIndex && t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const expenses = transactions.filter(t => new Date(t.date).getMonth() === monthIndex && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        return { month: label, income, expenses };
+      });
+
+      const budgetPerformance = budgets.map(b => {
+        const percentage = b.amount > 0 ? (b.spent / b.amount) * 100 : 0;
+        return {
+          category: b.category,
+          budgeted: Number(b.amount || 0),
+          spent: Number(b.spent || 0),
+          percentage,
+        };
+      });
+
+      const goalProgress = goals.map(g => ({
+        title: g.title,
+        current: Number(g.currentAmount || 0),
+        target: Number(g.targetAmount || 0),
+        percentage: g.targetAmount > 0 ? (g.currentAmount / g.targetAmount) * 100 : 0,
+      }));
+
+      setAnalyticsData({
+        monthlyIncome,
+        monthlyExpenses,
+        netIncome,
+        topCategories,
+        spendingTrend,
+        budgetPerformance,
+        goalProgress,
+      });
     } catch (error) {
       console.error('Error fetching analytics data:', error);
+      setAnalyticsData(null);
     } finally {
       setLoading(false);
     }
@@ -119,7 +179,7 @@ export default function AnalyticsPage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Analytics</h1>
           <p className="text-gray-600 dark:text-gray-400">Insights into your financial patterns</p>
         </div>
-        <Select value={timeRange} onValueChange={setTimeRange}>
+        <Select value={timeRange} onValueChange={(v: any) => setTimeRange(v)}>
           <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
@@ -144,7 +204,7 @@ export default function AnalyticsPage() {
               ${analyticsData.monthlyIncome.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              +12% from last month
+              In selected range
             </p>
           </CardContent>
         </Card>
@@ -159,7 +219,7 @@ export default function AnalyticsPage() {
               ${analyticsData.monthlyExpenses.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              -5% from last month
+              In selected range
             </p>
           </CardContent>
         </Card>
@@ -174,7 +234,7 @@ export default function AnalyticsPage() {
               ${analyticsData.netIncome.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              Available for savings
+              Income - Expenses
             </p>
           </CardContent>
         </Card>
@@ -186,7 +246,7 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle>Top Spending Categories</CardTitle>
             <CardDescription>
-              Where your money goes this month
+              Where your money goes in this range
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -288,7 +348,7 @@ export default function AnalyticsPage() {
         <CardHeader>
           <CardTitle>Spending Trend</CardTitle>
           <CardDescription>
-            Monthly income vs expenses over time
+            Income vs expenses in range
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -326,3 +386,8 @@ export default function AnalyticsPage() {
     </div>
   );
 }
+
+
+
+
+

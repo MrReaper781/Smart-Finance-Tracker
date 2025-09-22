@@ -113,3 +113,4 @@ BudgetSchema.virtual('spendingPercentage').get(function() {
 });
 
 export default mongoose.models.Budget || mongoose.model<IBudget>('Budget', BudgetSchema);
+

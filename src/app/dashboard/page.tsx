@@ -10,8 +10,6 @@ import {
   TrendingDown,
   Target,
   PiggyBank,
-  AlertTriangle,
-  CheckCircle,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -20,9 +18,9 @@ interface DashboardStats {
   netWorth: number;
   activeBudgets: number;
   activeGoals: number;
-  recentTransactions: any[];
-  budgetAlerts: any[];
-  goalProgress: any[];
+  recentTransactions: { id: string; description: string; amount: number; category: string; date: string }[];
+  budgetAlerts: { id: string; name: string; spent: number; limit: number; percentage: number }[];
+  goalProgress: { id: string; title: string; current: number; target: number; percentage: number }[];
 }
 
 export default function Dashboard() {
@@ -35,32 +33,82 @@ export default function Dashboard() {
 
   const fetchDashboardStats = async () => {
     try {
-      // This would typically fetch from your API
-      // For now, we'll use mock data
-      const mockStats: DashboardStats = {
-        totalIncome: 5000,
-        totalExpenses: 3200,
-        netWorth: 1800,
-        activeBudgets: 5,
-        activeGoals: 3,
-        recentTransactions: [
-          { id: 1, description: 'Grocery Shopping', amount: -85.50, category: 'Food', date: '2024-01-15' },
-          { id: 2, description: 'Salary', amount: 3000, category: 'Income', date: '2024-01-14' },
-          { id: 3, description: 'Gas Station', amount: -45.20, category: 'Transportation', date: '2024-01-13' },
-        ],
-        budgetAlerts: [
-          { id: 1, name: 'Food Budget', spent: 450, limit: 500, percentage: 90 },
-          { id: 2, name: 'Entertainment', spent: 180, limit: 200, percentage: 90 },
-        ],
-        goalProgress: [
-          { id: 1, title: 'Emergency Fund', current: 2500, target: 5000, percentage: 50 },
-          { id: 2, title: 'Vacation Fund', current: 800, target: 2000, percentage: 40 },
-        ],
+      setLoading(true);
+
+      const [txRes, budgetsRes, goalsRes] = await Promise.all([
+        fetch('/api/transactions?limit=5'),
+        fetch('/api/budgets'),
+        fetch('/api/goals'),
+      ]);
+
+      if (!txRes.ok || !budgetsRes.ok || !goalsRes.ok) {
+        throw new Error('Failed to load dashboard data');
+      }
+
+      const txData = await txRes.json();
+      const budgetsData = await budgetsRes.json();
+      const goalsData = await goalsRes.json();
+
+      const transactions = (txData.transactions || []) as any[];
+      const budgets = (budgetsData.budgets || []) as any[];
+      const goals = (goalsData.goals || []) as any[];
+
+      const totalIncome = transactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+      const totalExpenses = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+      const netWorth = totalIncome - totalExpenses;
+
+      const activeBudgets = budgets.filter(b => b.isActive).length;
+      const activeGoals = goals.filter(g => !g.isCompleted).length;
+
+      const recentTransactions = transactions.slice(0, 5).map(t => ({
+        id: t._id,
+        description: t.description,
+        amount: t.type === 'income' ? t.amount : -t.amount,
+        category: t.category,
+        date: new Date(t.date).toISOString().slice(0, 10),
+      }));
+
+      const budgetAlerts = budgets
+        .map(b => {
+          const percentage = b.amount > 0 ? (b.spent / b.amount) * 100 : 0;
+          return {
+            id: b._id,
+            name: b.name,
+            spent: Number(b.spent || 0),
+            limit: Number(b.amount || 0),
+            percentage: Number(percentage.toFixed(0)),
+          };
+        })
+        .filter(b => b.percentage >= (b.limit ? 0 : 0) && b.percentage >= 80) // show at 80%+
+        .slice(0, 5);
+
+      const goalProgress = goals.slice(0, 4).map(g => ({
+        id: g._id,
+        title: g.title,
+        current: Number(g.currentAmount || 0),
+        target: Number(g.targetAmount || 0),
+        percentage: Number(((g.targetAmount > 0 ? (g.currentAmount / g.targetAmount) * 100 : 0)).toFixed(0)),
+      }));
+
+      const newStats: DashboardStats = {
+        totalIncome,
+        totalExpenses,
+        netWorth,
+        activeBudgets,
+        activeGoals,
+        recentTransactions,
+        budgetAlerts,
+        goalProgress,
       };
-      
-      setStats(mockStats);
+
+      setStats(newStats);
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -104,7 +152,7 @@ export default function Dashboard() {
               ${stats.totalIncome.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              This month
+              This month (latest)
             </p>
           </CardContent>
         </Card>
@@ -119,14 +167,14 @@ export default function Dashboard() {
               ${stats.totalExpenses.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              This month
+              This month (latest)
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Worth</CardTitle>
+            <CardTitle className="text-sm font-medium">Net Balance</CardTitle>
             <DollarSign className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
@@ -134,7 +182,7 @@ export default function Dashboard() {
               ${stats.netWorth.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              Current balance
+              Income - Expenses
             </p>
           </CardContent>
         </Card>
@@ -224,6 +272,9 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
+              {stats.budgetAlerts.length === 0 && (
+                <div className="text-sm text-muted-foreground">No alerts right now.</div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -257,9 +308,17 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
+            {stats.goalProgress.length === 0 && (
+              <div className="text-sm text-muted-foreground">No goals yet.</div>
+            )}
           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
+
+
+
+
+

@@ -16,24 +16,25 @@ import {
   Shield, 
   Globe, 
   Palette, 
-  Trash2,
-  Save,
-  Upload
+  Save
 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
+  const { theme, setTheme } = useTheme();
   const [loading, setLoading] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
   const [settings, setSettings] = useState({
     profile: {
       name: session?.user?.name || '',
       email: session?.user?.email || '',
-      avatar: session?.user?.avatar || '',
+      avatar: (session?.user as any)?.avatar || '',
     },
     preferences: {
       currency: 'USD',
       dateFormat: 'MM/DD/YYYY',
-      theme: 'system',
+      theme: (theme as 'light' | 'dark' | 'system') || 'system',
       language: 'en',
     },
     notifications: {
@@ -50,13 +51,28 @@ export default function SettingsPage() {
     },
   });
 
+  useEffect(() => {
+    setSettings((prev) => ({
+      ...prev,
+      profile: {
+        ...prev.profile,
+        name: session?.user?.name || '',
+        email: session?.user?.email || '',
+        avatar: (session?.user as any)?.avatar || '',
+      },
+      preferences: {
+        ...prev.preferences,
+        theme: (theme as any) || 'system',
+      }
+    }));
+  }, [session, theme]);
+
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Save settings to API
-      console.log('Saving settings:', settings);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Persist settings to an API if needed
+      // For theme, apply immediately
+      setTheme(settings.preferences.theme);
     } catch (error) {
       console.error('Error saving settings:', error);
     } finally {
@@ -64,14 +80,22 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      try {
-        // Delete account API call
-        console.log('Deleting account...');
-      } catch (error) {
-        console.error('Error deleting account:', error);
+  const sendTestEmail = async () => {
+    try {
+      setEmailSending(true);
+      const res = await fetch('/api/settings/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to send email');
       }
+    } catch (error) {
+      console.error('Error sending email:', error);
+    } finally {
+      setEmailSending(false);
     }
   };
 
@@ -97,335 +121,135 @@ export default function SettingsPage() {
               <User className="h-5 w-5" />
               <span>Profile</span>
             </CardTitle>
-            <CardDescription>
-              Update your personal information
-            </CardDescription>
+            <CardDescription>Update your personal information</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center space-x-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={settings.profile.avatar} alt={settings.profile.name} />
+              <Avatar>
+                <AvatarImage src={settings.profile.avatar} />
                 <AvatarFallback>{userInitials}</AvatarFallback>
               </Avatar>
               <div>
-                <Button variant="outline" size="sm">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Change Avatar
-                </Button>
-                <p className="text-xs text-gray-500 mt-1">
-                  JPG, PNG or GIF. Max size 2MB.
-                </p>
+                <p className="font-medium">{settings.profile.name || 'Unnamed User'}</p>
+                <p className="text-sm text-muted-foreground">{settings.profile.email}</p>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                value={settings.profile.name}
-                onChange={(e) => setSettings({
-                  ...settings,
-                  profile: { ...settings.profile, name: e.target.value }
-                })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={settings.profile.email}
-                onChange={(e) => setSettings({
-                  ...settings,
-                  profile: { ...settings.profile, email: e.target.value }
-                })}
-              />
             </div>
           </CardContent>
         </Card>
 
         {/* Preferences */}
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <Palette className="h-5 w-5" />
+              <Globe className="h-5 w-5" />
               <span>Preferences</span>
             </CardTitle>
-            <CardDescription>
-              Customize your experience
-            </CardDescription>
+            <CardDescription>Localization and appearance</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="currency">Currency</Label>
-              <Select 
-                value={settings.preferences.currency} 
-                onValueChange={(value) => setSettings({
-                  ...settings,
-                  preferences: { ...settings.preferences, currency: value }
-                })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="USD">USD - US Dollar</SelectItem>
-                  <SelectItem value="EUR">EUR - Euro</SelectItem>
-                  <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                  <SelectItem value="INR">INR - Indian Rupee</SelectItem>
-                  <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
-                  <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-                </SelectContent>
-              </Select>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Currency</Label>
+                <Select value={settings.preferences.currency} onValueChange={(v) => setSettings(s => ({...s, preferences: { ...s.preferences, currency: v as any }}))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
+                    <SelectItem value="INR">INR</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Date Format</Label>
+                <Select value={settings.preferences.dateFormat} onValueChange={(v) => setSettings(s => ({...s, preferences: { ...s.preferences, dateFormat: v as any }}))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                    <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                    <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center space-x-2"><Palette className="h-4 w-4 mr-2" /> Theme</Label>
+                <Select value={settings.preferences.theme} onValueChange={(v: 'light' | 'dark' | 'system') => setSettings(s => ({...s, preferences: { ...s.preferences, theme: v }}))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">Light</SelectItem>
+                    <SelectItem value="dark">Dark</SelectItem>
+                    <SelectItem value="system">System</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="dateFormat">Date Format</Label>
-              <Select 
-                value={settings.preferences.dateFormat} 
-                onValueChange={(value) => setSettings({
-                  ...settings,
-                  preferences: { ...settings.preferences, dateFormat: value }
-                })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-                  <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                  <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="theme">Theme</Label>
-              <Select 
-                value={settings.preferences.theme} 
-                onValueChange={(value) => setSettings({
-                  ...settings,
-                  preferences: { ...settings.preferences, theme: value }
-                })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light">Light</SelectItem>
-                  <SelectItem value="dark">Dark</SelectItem>
-                  <SelectItem value="system">System</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="language">Language</Label>
-              <Select 
-                value={settings.preferences.language} 
-                onValueChange={(value) => setSettings({
-                  ...settings,
-                  preferences: { ...settings.preferences, language: value }
-                })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="es">Spanish</SelectItem>
-                  <SelectItem value="fr">French</SelectItem>
-                  <SelectItem value="de">German</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex justify-end">
+              <Button onClick={handleSave} disabled={loading}>
+                <Save className="h-4 w-4 mr-2" />
+                Save Changes
+              </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Notifications */}
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Bell className="h-5 w-5" />
               <span>Notifications</span>
             </CardTitle>
-            <CardDescription>
-              Manage your notification preferences
-            </CardDescription>
+            <CardDescription>Manage your notification preferences</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="email">Email Notifications</Label>
-                <p className="text-sm text-gray-500">Receive notifications via email</p>
-              </div>
-              <Switch
-                id="email"
-                checked={settings.notifications.email}
-                onCheckedChange={(checked) => setSettings({
-                  ...settings,
-                  notifications: { ...settings.notifications, email: checked }
-                })}
-              />
+              <Label>Email Notifications</Label>
+              <Switch checked={settings.notifications.email} onCheckedChange={(v) => setSettings(s => ({...s, notifications: { ...s.notifications, email: v }}))} />
             </div>
-
             <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="push">Push Notifications</Label>
-                <p className="text-sm text-gray-500">Receive push notifications</p>
-              </div>
-              <Switch
-                id="push"
-                checked={settings.notifications.push}
-                onCheckedChange={(checked) => setSettings({
-                  ...settings,
-                  notifications: { ...settings.notifications, push: checked }
-                })}
-              />
+              <Label>Weekly Reports</Label>
+              <Switch checked={settings.notifications.weeklyReports} onCheckedChange={(v) => setSettings(s => ({...s, notifications: { ...s.notifications, weeklyReports: v }}))} />
             </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="budgetAlerts">Budget Alerts</Label>
-                <p className="text-sm text-gray-500">Get notified when approaching budget limits</p>
-              </div>
-              <Switch
-                id="budgetAlerts"
-                checked={settings.notifications.budgetAlerts}
-                onCheckedChange={(checked) => setSettings({
-                  ...settings,
-                  notifications: { ...settings.notifications, budgetAlerts: checked }
-                })}
-              />
+            <div>
+              <Button onClick={sendTestEmail} disabled={emailSending}>
+                {emailSending ? 'Sending…' : 'Send Test Email'}
+              </Button>
             </div>
+          </CardContent>
+        </Card>
 
+        {/* Privacy */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Shield className="h-5 w-5" />
+              <span>Privacy</span>
+            </CardTitle>
+            <CardDescription>Control your data preferences</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="goalReminders">Goal Reminders</Label>
-                <p className="text-sm text-gray-500">Reminders for your financial goals</p>
-              </div>
-              <Switch
-                id="goalReminders"
-                checked={settings.notifications.goalReminders}
-                onCheckedChange={(checked) => setSettings({
-                  ...settings,
-                  notifications: { ...settings.notifications, goalReminders: checked }
-                })}
-              />
+              <Label>Share anonymized data</Label>
+              <Switch checked={settings.privacy.dataSharing} onCheckedChange={(v) => setSettings(s => ({...s, privacy: { ...s.privacy, dataSharing: v }}))} />
             </div>
-
             <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="weeklyReports">Weekly Reports</Label>
-                <p className="text-sm text-gray-500">Receive weekly financial summaries</p>
-              </div>
-              <Switch
-                id="weeklyReports"
-                checked={settings.notifications.weeklyReports}
-                onCheckedChange={(checked) => setSettings({
-                  ...settings,
-                  notifications: { ...settings.notifications, weeklyReports: checked }
-                })}
-              />
+              <Label>Allow analytics</Label>
+              <Switch checked={settings.privacy.analytics} onCheckedChange={(v) => setSettings(s => ({...s, privacy: { ...s.privacy, analytics: v }}))} />
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Privacy & Security */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Shield className="h-5 w-5" />
-            <span>Privacy & Security</span>
-          </CardTitle>
-          <CardDescription>
-            Control your data and privacy settings
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="dataSharing">Data Sharing</Label>
-              <p className="text-sm text-gray-500">Allow sharing of anonymized data for product improvement</p>
-            </div>
-            <Switch
-              id="dataSharing"
-              checked={settings.privacy.dataSharing}
-              onCheckedChange={(checked) => setSettings({
-                ...settings,
-                privacy: { ...settings.privacy, dataSharing: checked }
-              })}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="analytics">Analytics</Label>
-              <p className="text-sm text-gray-500">Help us improve by sharing usage analytics</p>
-            </div>
-            <Switch
-              id="analytics"
-              checked={settings.privacy.analytics}
-              onCheckedChange={(checked) => setSettings({
-                ...settings,
-                privacy: { ...settings.privacy, analytics: checked }
-              })}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="marketing">Marketing Communications</Label>
-              <p className="text-sm text-gray-500">Receive marketing emails and updates</p>
-            </div>
-            <Switch
-              id="marketing"
-              checked={settings.privacy.marketing}
-              onCheckedChange={(checked) => setSettings({
-                ...settings,
-                privacy: { ...settings.privacy, marketing: checked }
-              })}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Danger Zone */}
-      <Card className="border-red-200 dark:border-red-800">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2 text-red-600">
-            <Trash2 className="h-5 w-5" />
-            <span>Danger Zone</span>
-          </CardTitle>
-          <CardDescription>
-            Irreversible and destructive actions
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-medium">Delete Account</h4>
-              <p className="text-sm text-gray-500">
-                Permanently delete your account and all associated data
-              </p>
-            </div>
-            <Button variant="destructive" onClick={handleDeleteAccount}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Account
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={loading}>
-          <Save className="h-4 w-4 mr-2" />
-          {loading ? 'Saving...' : 'Save Changes'}
-        </Button>
-      </div>
     </div>
   );
 }
+
+
+
+
+

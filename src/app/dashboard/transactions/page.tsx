@@ -54,37 +54,22 @@ export default function TransactionsPage() {
 
   const fetchTransactions = async () => {
     try {
-      // Mock data for now - replace with actual API call
-      const mockTransactions: Transaction[] = [
-        {
-          _id: '1',
-          type: 'expense',
-          category: 'Food',
-          subcategory: 'Groceries',
-          amount: 85.50,
-          description: 'Weekly grocery shopping',
-          date: '2024-01-15',
-          tags: ['essential'],
-        },
-        {
-          _id: '2',
-          type: 'income',
-          category: 'Salary',
-          amount: 3000,
-          description: 'Monthly salary',
-          date: '2024-01-14',
-        },
-        {
-          _id: '3',
-          type: 'expense',
-          category: 'Transportation',
-          subcategory: 'Gas',
-          amount: 45.20,
-          description: 'Gas station fill-up',
-          date: '2024-01-13',
-        },
-      ];
-      setTransactions(mockTransactions);
+      setLoading(true);
+      const res = await fetch('/api/transactions');
+      if (!res.ok) throw new Error('Failed to load transactions');
+      const data = await res.json();
+      setTransactions(
+        (data.transactions || []).map((t: any) => ({
+          _id: t._id,
+          type: t.type,
+          category: t.category,
+          subcategory: t.subcategory,
+          amount: t.amount,
+          description: t.description,
+          date: t.date,
+          tags: t.tags,
+        }))
+      );
     } catch (error) {
       console.error('Error fetching transactions:', error);
     } finally {
@@ -96,17 +81,33 @@ export default function TransactionsPage() {
     e.preventDefault();
     try {
       const transactionData = {
-        ...formData,
+        type: formData.type,
+        category: formData.category,
+        subcategory: formData.subcategory || undefined,
         amount: parseFloat(formData.amount),
+        description: formData.description,
+        date: formData.date,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
       };
 
+      let res: Response;
       if (editingTransaction) {
-        // Update transaction
-        console.log('Updating transaction:', transactionData);
+        res = await fetch(`/api/transactions/${editingTransaction._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(transactionData),
+        });
       } else {
-        // Add new transaction
-        console.log('Adding transaction:', transactionData);
+        res = await fetch('/api/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(transactionData),
+        });
+      }
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to save transaction');
       }
 
       // Reset form and close dialog
@@ -135,7 +136,7 @@ export default function TransactionsPage() {
       subcategory: transaction.subcategory || '',
       amount: transaction.amount.toString(),
       description: transaction.description,
-      date: transaction.date,
+      date: transaction.date.slice(0, 10),
       tags: transaction.tags?.join(', ') || '',
     });
     setIsAddDialogOpen(true);
@@ -144,7 +145,11 @@ export default function TransactionsPage() {
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this transaction?')) {
       try {
-        console.log('Deleting transaction:', id);
+        const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Failed to delete transaction');
+        }
         fetchTransactions();
       } catch (error) {
         console.error('Error deleting transaction:', error);
@@ -449,3 +454,8 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
+
+
+
+

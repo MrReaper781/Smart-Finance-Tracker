@@ -91,67 +91,11 @@ export default function GoalsPage() {
 
   const fetchGoals = async () => {
     try {
-      // Mock data for now - replace with actual API call
-      const mockGoals: Goal[] = [
-        {
-          _id: '1',
-          title: 'Emergency Fund',
-          description: 'Build a 6-month emergency fund',
-          type: 'emergency_fund',
-          targetAmount: 10000,
-          currentAmount: 3500,
-          targetDate: '2024-12-31',
-          isCompleted: false,
-          priority: 'high',
-          category: 'Emergency',
-          milestones: [
-            { amount: 2500, description: 'First milestone', achieved: true, achievedAt: '2024-01-15' },
-            { amount: 5000, description: 'Halfway point', achieved: false },
-            { amount: 10000, description: 'Goal achieved', achieved: false },
-          ],
-          contributions: [
-            { amount: 500, date: '2024-01-15', source: 'Salary', description: 'Monthly contribution' },
-            { amount: 300, date: '2024-01-10', source: 'Bonus', description: 'Year-end bonus' },
-          ],
-          autoContribution: {
-            enabled: true,
-            amount: 500,
-            frequency: 'monthly',
-            source: 'Checking Account',
-          },
-        },
-        {
-          _id: '2',
-          title: 'Vacation Fund',
-          description: 'Save for a dream vacation to Europe',
-          type: 'savings',
-          targetAmount: 5000,
-          currentAmount: 1200,
-          targetDate: '2024-08-15',
-          isCompleted: false,
-          priority: 'medium',
-          category: 'Travel',
-          contributions: [
-            { amount: 200, date: '2024-01-15', source: 'Savings', description: 'Monthly contribution' },
-          ],
-        },
-        {
-          _id: '3',
-          title: 'New Laptop',
-          description: 'Save for a new MacBook Pro',
-          type: 'purchase',
-          targetAmount: 2500,
-          currentAmount: 2500,
-          targetDate: '2024-02-01',
-          isCompleted: true,
-          priority: 'low',
-          category: 'Technology',
-          contributions: [
-            { amount: 2500, date: '2024-01-20', source: 'Savings', description: 'Final payment' },
-          ],
-        },
-      ];
-      setGoals(mockGoals);
+      setLoading(true);
+      const res = await fetch('/api/goals');
+      if (!res.ok) throw new Error('Failed to load goals');
+      const data = await res.json();
+      setGoals(data.goals || []);
     } catch (error) {
       console.error('Error fetching goals:', error);
     } finally {
@@ -162,17 +106,34 @@ export default function GoalsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const goalData = {
-        ...formData,
+      const goalData: any = {
+        title: formData.title,
+        description: formData.description || undefined,
+        type: formData.type,
         targetAmount: parseFloat(formData.targetAmount),
+        targetDate: formData.targetDate,
+        priority: formData.priority,
+        category: formData.category,
       };
 
+      let res: Response;
       if (editingGoal) {
-        // Update goal
-        console.log('Updating goal:', goalData);
+        res = await fetch(`/api/goals/${editingGoal._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(goalData),
+        });
       } else {
-        // Add new goal
-        console.log('Adding goal:', goalData);
+        res = await fetch('/api/goals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(goalData),
+        });
+      }
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to save goal');
       }
 
       // Reset form and close dialog
@@ -201,17 +162,21 @@ export default function GoalsPage() {
       const contribution = {
         amount: parseFloat(contributionData.amount),
         source: contributionData.source,
-        description: contributionData.description,
+        description: contributionData.description || undefined,
       };
 
-      console.log('Adding contribution:', contribution);
+      const res = await fetch(`/api/goals/${selectedGoal._id}/contribute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contribution),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to add contribution');
+      }
 
       // Reset form and close dialog
-      setContributionData({
-        amount: '',
-        source: '',
-        description: '',
-      });
+      setContributionData({ amount: '', source: '', description: '' });
       setSelectedGoal(null);
       setIsContributeDialogOpen(false);
       fetchGoals();
@@ -227,7 +192,7 @@ export default function GoalsPage() {
       description: goal.description || '',
       type: goal.type,
       targetAmount: goal.targetAmount.toString(),
-      targetDate: goal.targetDate,
+      targetDate: goal.targetDate.slice(0, 10),
       priority: goal.priority,
       category: goal.category,
     });
@@ -237,7 +202,11 @@ export default function GoalsPage() {
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this goal?')) {
       try {
-        console.log('Deleting goal:', id);
+        const res = await fetch(`/api/goals/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Failed to delete goal');
+        }
         fetchGoals();
       } catch (error) {
         console.error('Error deleting goal:', error);
@@ -657,3 +626,8 @@ export default function GoalsPage() {
     </div>
   );
 }
+
+
+
+
+

@@ -75,3 +75,8 @@ console.log('2. Set up MongoDB (local or MongoDB Atlas)');
 console.log('3. Update .env.local with your MongoDB connection string');
 console.log('4. Run the development server: npm run dev');
 console.log('\nFor detailed instructions, see the README.md file.');
+
+
+
+
+

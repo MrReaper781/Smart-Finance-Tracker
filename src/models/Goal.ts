@@ -167,3 +167,4 @@ GoalSchema.virtual('amountRemaining').get(function() {
 });
 
 export default mongoose.models.Goal || mongoose.model<IGoal>('Goal', GoalSchema);
+
