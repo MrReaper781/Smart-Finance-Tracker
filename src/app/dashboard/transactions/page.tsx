@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Filter, Edit, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatCurrency, formatDateISOToPreference } from '@/lib/format';
 
 interface Transaction {
   _id: string;
@@ -302,7 +303,7 @@ export default function TransactionsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              ${totalIncome.toLocaleString()}
+              {formatCurrency(totalIncome)}
             </div>
           </CardContent>
         </Card>
@@ -314,7 +315,7 @@ export default function TransactionsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              ${totalExpenses.toLocaleString()}
+              {formatCurrency(totalExpenses)}
             </div>
           </CardContent>
         </Card>
@@ -326,7 +327,7 @@ export default function TransactionsPage() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${totalIncome - totalExpenses >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${(totalIncome - totalExpenses).toLocaleString()}
+              {formatCurrency(totalIncome - totalExpenses)}
             </div>
           </CardContent>
         </Card>
@@ -416,7 +417,7 @@ export default function TransactionsPage() {
                       {transaction.subcategory && (
                         <Badge variant="outline">{transaction.subcategory}</Badge>
                       )}
-                      <span>{format(new Date(transaction.date), 'MMM dd, yyyy')}</span>
+                      <span>{formatDateISOToPreference(transaction.date)}</span>
                     </div>
                   </div>
                 </div>
@@ -424,7 +425,7 @@ export default function TransactionsPage() {
                   <span className={`font-medium ${
                     transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                   }`}>
-                    {transaction.type === 'income' ? '+' : '-'}${transaction.amount.toFixed(2)}
+                    {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
                   </span>
                   <Button
                     variant="ghost"

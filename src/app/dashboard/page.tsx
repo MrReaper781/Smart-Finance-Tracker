@@ -11,6 +11,7 @@ import {
   Target,
   PiggyBank,
 } from 'lucide-react';
+import { formatCurrency, formatDateISOToPreference } from '@/lib/format';
 
 interface DashboardStats {
   totalIncome: number;
@@ -69,7 +70,7 @@ export default function Dashboard() {
         description: t.description,
         amount: t.type === 'income' ? t.amount : -t.amount,
         category: t.category,
-        date: new Date(t.date).toISOString().slice(0, 10),
+        date: t.date,
       }));
 
       const budgetAlerts = budgets
@@ -83,7 +84,7 @@ export default function Dashboard() {
             percentage: Number(percentage.toFixed(0)),
           };
         })
-        .filter(b => b.percentage >= (b.limit ? 0 : 0) && b.percentage >= 80) // show at 80%+
+        .filter(b => b.percentage >= (b.limit ? 0 : 0) && b.percentage >= 80)
         .slice(0, 5);
 
       const goalProgress = goals.slice(0, 4).map(g => ({
@@ -149,7 +150,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              ${stats.totalIncome.toLocaleString()}
+              {formatCurrency(stats.totalIncome)}
             </div>
             <p className="text-xs text-muted-foreground">
               This month (latest)
@@ -164,7 +165,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              ${stats.totalExpenses.toLocaleString()}
+              {formatCurrency(stats.totalExpenses)}
             </div>
             <p className="text-xs text-muted-foreground">
               This month (latest)
@@ -179,7 +180,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              ${stats.netWorth.toLocaleString()}
+              {formatCurrency(stats.netWorth)}
             </div>
             <p className="text-xs text-muted-foreground">
               Income - Expenses
@@ -237,9 +238,9 @@ export default function Dashboard() {
                     <p className={`font-medium ${
                       transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
                     }`}>
-                      {transaction.amount > 0 ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}
+                      {transaction.amount > 0 ? '+' : ''}{formatCurrency(Math.abs(transaction.amount))}
                     </p>
-                    <p className="text-sm text-muted-foreground">{transaction.date}</p>
+                    <p className="text-sm text-muted-foreground">{formatDateISOToPreference(transaction.date)}</p>
                   </div>
                 </div>
               ))}
@@ -267,8 +268,8 @@ export default function Dashboard() {
                   </div>
                   <Progress value={budget.percentage} className="h-2" />
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>${budget.spent} spent</span>
-                    <span>${budget.limit} limit</span>
+                    <span>{formatCurrency(budget.spent)} spent</span>
+                    <span>{formatCurrency(budget.limit)} limit</span>
                   </div>
                 </div>
               ))}
@@ -303,8 +304,8 @@ export default function Dashboard() {
                 </div>
                 <Progress value={goal.percentage} className="h-3" />
                 <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>${goal.current.toLocaleString()}</span>
-                  <span>${goal.target.toLocaleString()}</span>
+                  <span>{formatCurrency(goal.current)}</span>
+                  <span>{formatCurrency(goal.target)}</span>
                 </div>
               </div>
             ))}

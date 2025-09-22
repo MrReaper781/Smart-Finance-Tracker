@@ -10,7 +10,8 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { formatCurrency, formatDateISOToPreference } from '@/lib/format';
 
 interface Budget {
   _id: string;
@@ -352,7 +353,7 @@ export default function BudgetsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${totalBudgetAmount.toLocaleString()}
+              {formatCurrency(totalBudgetAmount)}
             </div>
             <p className="text-xs text-muted-foreground">
               Across {activeBudgets} active budgets
@@ -367,7 +368,7 @@ export default function BudgetsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${totalSpent.toLocaleString()}
+              {formatCurrency(totalSpent)}
             </div>
             <p className="text-xs text-muted-foreground">
               {totalBudgetAmount > 0 ? ((totalSpent / totalBudgetAmount) * 100).toFixed(1) : 0}% of total budget
@@ -382,7 +383,7 @@ export default function BudgetsPage() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${totalBudgetAmount - totalSpent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${(totalBudgetAmount - totalSpent).toLocaleString()}
+              {formatCurrency(totalBudgetAmount - totalSpent)}
             </div>
             <p className="text-xs text-muted-foreground">
               Available to spend
@@ -442,16 +443,22 @@ export default function BudgetsPage() {
                   <Progress value={Math.min(percentage, 100)} className="h-2" />
                   
                   <div className="flex justify-between text-sm">
-                    <span>${budget.spent.toFixed(2)} spent</span>
-                    <span>${budget.amount.toFixed(2)} budget</span>
+                    <span>{formatCurrency(budget.spent)} spent</span>
+                    <span>{formatCurrency(budget.amount)} budget</span>
                   </div>
                   
                   <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                    <span>${(budget.amount - budget.spent).toFixed(2)} remaining</span>
+                    <span>{formatCurrency(budget.amount - budget.spent)} remaining</span>
                     <Badge variant={status.status === 'exceeded' ? 'destructive' : status.status === 'warning' ? 'secondary' : 'default'}>
                       {status.status === 'exceeded' ? 'Exceeded' : status.status === 'warning' ? 'Warning' : 'On Track'}
                     </Badge>
                   </div>
+
+                  {budget.period.type === 'custom' && (
+                    <div className="text-xs text-muted-foreground">
+                      {formatDateISOToPreference(budget.period.start)} - {formatDateISOToPreference(budget.period.end)}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -10,6 +10,7 @@ import {
   DollarSign,
   PiggyBank
 } from 'lucide-react';
+import { formatCurrency } from '@/lib/format';
 
 interface AnalyticsData {
   monthlyIncome: number;
@@ -114,7 +115,6 @@ export default function AnalyticsPage() {
       const endDateObj = new Date(end);
       const months = monthLabelsBetween(startDateObj, endDateObj);
       const spendingTrend = months.map((label) => {
-        // Group per month label
         const monthIndex = new Date(`${label} 1, ${new Date().getFullYear()}`).getMonth();
         const income = transactions.filter(t => new Date(t.date).getMonth() === monthIndex && t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expenses = transactions.filter(t => new Date(t.date).getMonth() === monthIndex && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
@@ -201,7 +201,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              ${analyticsData.monthlyIncome.toLocaleString()}
+              {formatCurrency(analyticsData.monthlyIncome)}
             </div>
             <p className="text-xs text-muted-foreground">
               In selected range
@@ -216,7 +216,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              ${analyticsData.monthlyExpenses.toLocaleString()}
+              {formatCurrency(analyticsData.monthlyExpenses)}
             </div>
             <p className="text-xs text-muted-foreground">
               In selected range
@@ -231,7 +231,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${analyticsData.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${analyticsData.netIncome.toLocaleString()}
+              {formatCurrency(analyticsData.netIncome)}
             </div>
             <p className="text-xs text-muted-foreground">
               Income - Expenses
@@ -263,7 +263,7 @@ export default function AnalyticsPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium">${category.amount.toLocaleString()}</p>
+                    <p className="font-medium">{formatCurrency(category.amount)}</p>
                   </div>
                 </div>
               ))}
@@ -296,8 +296,8 @@ export default function AnalyticsPage() {
                     />
                   </div>
                   <div className="flex justify-between text-sm text-gray-500">
-                    <span>${budget.spent.toFixed(2)} spent</span>
-                    <span>${budget.budgeted.toFixed(2)} budgeted</span>
+                    <span>{formatCurrency(budget.spent)} spent</span>
+                    <span>{formatCurrency(budget.budgeted)} budgeted</span>
                   </div>
                 </div>
               ))}
@@ -334,8 +334,8 @@ export default function AnalyticsPage() {
                   />
                 </div>
                 <div className="flex justify-between text-sm text-gray-500">
-                  <span>${goal.current.toLocaleString()}</span>
-                  <span>${goal.target.toLocaleString()}</span>
+                  <span>{formatCurrency(goal.current)}</span>
+                  <span>{formatCurrency(goal.target)}</span>
                 </div>
               </div>
             ))}
@@ -363,18 +363,18 @@ export default function AnalyticsPage() {
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center space-x-2">
                         <div className="w-3 h-3 rounded-full bg-green-500" />
-                        <span className="text-sm">Income: ${month.income.toLocaleString()}</span>
+                        <span className="text-sm">Income: {formatCurrency(month.income)}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <div className="w-3 h-3 rounded-full bg-red-500" />
-                        <span className="text-sm">Expenses: ${month.expenses.toLocaleString()}</span>
+                        <span className="text-sm">Expenses: {formatCurrency(month.expenses)}</span>
                       </div>
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className={`font-medium ${month.income - month.expenses >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ${(month.income - month.expenses).toLocaleString()}
+                    {formatCurrency(month.income - month.expenses)}
                   </p>
                   <p className="text-xs text-gray-500">Net</p>
                 </div>

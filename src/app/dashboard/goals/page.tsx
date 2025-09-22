@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Edit, Trash2, PiggyBank, Target, TrendingUp, Calendar, DollarSign } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
+import { formatCurrency, formatDateISOToPreference } from '@/lib/format';
 
 interface Goal {
   _id: string;
@@ -391,7 +392,7 @@ export default function GoalsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${totalTargetAmount.toLocaleString()}
+              {formatCurrency(totalTargetAmount)}
             </div>
             <p className="text-xs text-muted-foreground">
               Across all goals
@@ -406,7 +407,7 @@ export default function GoalsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${totalCurrentAmount.toLocaleString()}
+              {formatCurrency(totalCurrentAmount)}
             </div>
             <p className="text-xs text-muted-foreground">
               {totalTargetAmount > 0 ? ((totalCurrentAmount / totalTargetAmount) * 100).toFixed(1) : 0}% of target
@@ -421,7 +422,7 @@ export default function GoalsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${(totalTargetAmount - totalCurrentAmount).toLocaleString()}
+              {formatCurrency(totalTargetAmount - totalCurrentAmount)}
             </div>
             <p className="text-xs text-muted-foreground">
               To reach all goals
@@ -483,11 +484,11 @@ export default function GoalsPage() {
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-600 dark:text-gray-400">Current:</span>
-                      <p className="font-medium">${goal.currentAmount.toLocaleString()}</p>
+                      <p className="font-medium">{formatCurrency(goal.currentAmount)}</p>
                     </div>
                     <div>
                       <span className="text-gray-600 dark:text-gray-400">Target:</span>
-                      <p className="font-medium">${goal.targetAmount.toLocaleString()}</p>
+                      <p className="font-medium">{formatCurrency(goal.targetAmount)}</p>
                     </div>
                   </div>
 
@@ -499,7 +500,7 @@ export default function GoalsPage() {
                       </span>
                     </div>
                     <span className="text-gray-600 dark:text-gray-400">
-                      ${(goal.targetAmount - goal.currentAmount).toLocaleString()} remaining
+                      {formatCurrency(goal.targetAmount - goal.currentAmount)} remaining
                     </span>
                   </div>
 
@@ -512,7 +513,7 @@ export default function GoalsPage() {
                             <span className={milestone.achieved ? 'line-through text-gray-500' : ''}>
                               {milestone.description}
                             </span>
-                            <span className="font-medium">${milestone.amount.toLocaleString()}</span>
+                            <span className="font-medium">{formatCurrency(milestone.amount)}</span>
                           </div>
                         ))}
                       </div>

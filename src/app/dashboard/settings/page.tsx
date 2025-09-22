@@ -52,6 +52,22 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
+    try {
+      const currency = JSON.parse(localStorage.getItem('sft:currency') || '"USD"');
+      const dateFormat = JSON.parse(localStorage.getItem('sft:dateFormat') || '"MM/DD/YYYY"');
+      setSettings((prev) => ({
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          currency,
+          dateFormat,
+          theme: (theme as any) || 'system',
+        }
+      }));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     setSettings((prev) => ({
       ...prev,
       profile: {
@@ -70,8 +86,9 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Persist settings to an API if needed
-      // For theme, apply immediately
+      // Persist preferences locally
+      localStorage.setItem('sft:currency', JSON.stringify(settings.preferences.currency));
+      localStorage.setItem('sft:dateFormat', JSON.stringify(settings.preferences.dateFormat));
       setTheme(settings.preferences.theme);
     } catch (error) {
       console.error('Error saving settings:', error);

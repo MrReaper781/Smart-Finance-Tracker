@@ -64,7 +64,7 @@ export default function Sidebar() {
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-8 w-8 text-primary" />
               <span className="text-xl font-bold text-gray-900 dark:text-white">
-                FinanceTracker
+                Credivo
               </span>
             </div>
           </div>
