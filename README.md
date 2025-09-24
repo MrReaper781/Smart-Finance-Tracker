@@ -56,6 +56,18 @@ A comprehensive personal finance management application built with Next.js, Type
    # NextAuth.js
    NEXTAUTH_URL=http://localhost:3000
    NEXTAUTH_SECRET=your-secret-key-here-change-this-in-production
+
+    # SMTP (Nodemailer)
+    SMTP_HOST=your-smtp-host
+    SMTP_PORT=587
+    SMTP_SECURE=false
+    SMTP_USER=your-smtp-username
+    SMTP_PASS=your-smtp-password
+    SMTP_FROM="Smart Finance Tracker <no-reply@example.com>"
+
+    # Error email alerts (optional)
+    ADMIN_EMAIL=admin@example.com
+    ERROR_EMAIL_ENABLED=true
    ```
 
 4. **Set up MongoDB**
@@ -72,6 +84,13 @@ A comprehensive personal finance management application built with Next.js, Type
    yarn dev
    # or
    pnpm dev
+   ```
+
+   Optional toggles:
+   ```env
+   # Feature toggles for transactional emails
+   SIGNUP_EMAIL_ENABLED=true
+   BUDGET_EMAIL_ENABLED=true
    ```
 
 6. **Open your browser**

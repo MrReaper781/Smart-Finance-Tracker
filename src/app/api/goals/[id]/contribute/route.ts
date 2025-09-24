@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import Goal from '@/models/Goal';
+import { sendErrorEmail } from '@/lib/mailer';
 
 export async function POST(
   request: NextRequest,
@@ -88,6 +89,7 @@ export async function POST(
     });
   } catch (error) {
     console.error('Add contribution error:', error);
+    await sendErrorEmail({ route: '/api/goals/[id]/contribute', method: 'POST', error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

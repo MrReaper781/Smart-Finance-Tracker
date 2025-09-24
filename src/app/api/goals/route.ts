@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import Goal from '@/models/Goal';
+import { sendErrorEmail } from '@/lib/mailer';
 
 export async function GET(request: NextRequest) {
   try {
@@ -116,6 +117,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('Create goal error:', error);
+    await sendErrorEmail({ route: '/api/goals', method: 'POST', error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

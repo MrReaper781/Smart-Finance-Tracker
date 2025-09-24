@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import Budget from '@/models/Budget';
+import { sendErrorEmail } from '@/lib/mailer';
 
 export async function GET(request: NextRequest) {
   try {
@@ -111,6 +112,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('Create budget error:', error);
+    await sendErrorEmail({ route: '/api/budgets', method: 'POST', error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

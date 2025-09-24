@@ -108,7 +108,7 @@ export default function SignUp() {
             <TrendingUp className="h-12 w-12 text-primary" />
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
-            FinanceTracker
+            Credivo
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Create your account to get started
@@ -219,6 +219,7 @@ export default function SignUp() {
     </div>
   );
 }
+
 
 
 

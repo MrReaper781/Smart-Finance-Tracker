@@ -79,7 +79,7 @@ export default function Home() {
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-8 w-8 text-primary" />
               <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                FinanceTracker
+                Credivo
               </span>
             </div>
             <div className="flex items-center space-x-4">
@@ -174,10 +174,10 @@ export default function Home() {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-2 mb-4 md:mb-0">
               <TrendingUp className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold">FinanceTracker</span>
+              <span className="text-xl font-bold">Credivo</span>
             </div>
             <p className="text-gray-400">
-              © 2024 FinanceTracker. All rights reserved.
+              © 2025 Credivo. All rights reserved.
             </p>
           </div>
         </div>

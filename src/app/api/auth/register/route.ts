@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
+import { sendSignupEmail, sendErrorEmail } from '@/lib/mailer';
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,6 +46,9 @@ export async function POST(request: NextRequest) {
 
     await user.save();
 
+    // Fire-and-forget signup email
+    void sendSignupEmail({ to: user.email, name: user.name }).catch(() => {});
+
     // Return user without password
     const { password: _, ...userWithoutPassword } = user.toObject();
 
@@ -54,6 +58,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error('Registration error:', error);
+    await sendErrorEmail({ route: '/api/auth/register', method: 'POST', error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
