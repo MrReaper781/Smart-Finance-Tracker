@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { type, category, subcategory, amount, description, date, tags, recurring, location } = body;
+    const { type, category, subcategory, amount, description, date, tags, recurring, location, payment } = body;
 
     // Validate required fields
     if (!type || !category || !amount || !description) {
@@ -105,6 +105,10 @@ export async function POST(request: NextRequest) {
       tags,
       recurring,
       location,
+      payment: payment || {
+        method: 'cash',
+        status: 'completed',
+      },
     });
 
     await transaction.save();

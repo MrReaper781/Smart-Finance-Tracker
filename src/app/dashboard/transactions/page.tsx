@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Edit, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, TrendingUp, TrendingDown, CreditCard, Smartphone } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatCurrency, formatDateISOToPreference } from '@/lib/format';
+import { PaymentStatus } from '@/components/PaymentStatus';
 
 interface Transaction {
   _id: string;
@@ -22,6 +23,15 @@ interface Transaction {
   description: string;
   date: string;
   tags?: string[];
+  payment?: {
+    method: 'cash' | 'card' | 'upi' | 'netbanking' | 'wallet' | 'razorpay';
+    status: 'pending' | 'completed' | 'failed' | 'cancelled';
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    razorpaySignature?: string;
+    transactionId?: string;
+    gateway?: string;
+  };
 }
 
 const categories = {
@@ -47,11 +57,142 @@ export default function TransactionsPage() {
     description: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     tags: '',
+    paymentMethod: 'cash' as 'cash' | 'card' | 'upi' | 'netbanking' | 'wallet' | 'razorpay',
   });
+
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   useEffect(() => {
     fetchTransactions();
   }, []);
+
+  // Load Razorpay script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  const processRazorpayPayment = async (transactionData: any) => {
+    try {
+      setIsProcessingPayment(true);
+
+      // Create order
+      const orderResponse = await fetch('/api/payments/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: transactionData.amount,
+          description: transactionData.description,
+          transactionId: Date.now().toString(),
+        }),
+      });
+
+      if (!orderResponse.ok) {
+        throw new Error('Failed to create payment order');
+      }
+
+      const { order, key } = await orderResponse.json();
+
+      // Configure Razorpay options
+      const options = {
+        key: key,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'Smart Finance Tracker',
+        description: transactionData.description,
+        order_id: order.id,
+        handler: async function (response: any) {
+          try {
+            // Verify payment
+            const verifyResponse = await fetch('/api/payments/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                transactionId: order.receipt,
+              }),
+            });
+
+            if (verifyResponse.ok) {
+              // Create transaction with payment details
+              const transactionResponse = await fetch('/api/transactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  ...transactionData,
+                  payment: {
+                    method: 'razorpay',
+                    status: 'completed',
+                    razorpayOrderId: response.razorpay_order_id,
+                    razorpayPaymentId: response.razorpay_payment_id,
+                    razorpaySignature: response.razorpay_signature,
+                    transactionId: response.razorpay_payment_id,
+                    gateway: 'razorpay',
+                  },
+                }),
+              });
+
+              if (transactionResponse.ok) {
+                alert('Payment successful! Transaction recorded.');
+                fetchTransactions();
+                setIsAddDialogOpen(false);
+                setFormData({
+                  type: 'expense',
+                  category: '',
+                  subcategory: '',
+                  amount: '',
+                  description: '',
+                  date: format(new Date(), 'yyyy-MM-dd'),
+                  tags: '',
+                  paymentMethod: 'cash',
+                });
+              } else {
+                alert('Payment successful but failed to record transaction. Please contact support.');
+              }
+            } else {
+              alert('Payment verification failed. Please try again.');
+            }
+          } catch (error) {
+            console.error('Payment verification error:', error);
+            alert('Payment verification failed. Please try again.');
+          }
+        },
+        prefill: {
+          name: 'User',
+          email: 'user@example.com',
+        },
+        theme: {
+          color: '#3B82F6',
+        },
+        modal: {
+          ondismiss: function() {
+            setIsProcessingPayment(false);
+          }
+        }
+      };
+
+      // Open Razorpay checkout
+      const razorpay = (window as any).Razorpay;
+      if (razorpay) {
+        const rzp = new razorpay(options);
+        rzp.open();
+      } else {
+        throw new Error('Razorpay not loaded');
+      }
+    } catch (error) {
+      console.error('Payment processing error:', error);
+      alert('Payment processing failed. Please try again.');
+      setIsProcessingPayment(false);
+    }
+  };
 
   const fetchTransactions = async () => {
     try {
@@ -89,7 +230,17 @@ export default function TransactionsPage() {
         description: formData.description,
         date: formData.date,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()) : [],
+        payment: {
+          method: formData.paymentMethod,
+          status: formData.paymentMethod === 'razorpay' ? 'pending' : 'completed',
+        },
       };
+
+      // If Razorpay payment is selected, process payment first
+      if (formData.paymentMethod === 'razorpay') {
+        await processRazorpayPayment(transactionData);
+        return;
+      }
 
       let res: Response;
       if (editingTransaction) {
@@ -120,6 +271,7 @@ export default function TransactionsPage() {
         description: '',
         date: format(new Date(), 'yyyy-MM-dd'),
         tags: '',
+        paymentMethod: 'cash',
       });
       setEditingTransaction(null);
       setIsAddDialogOpen(false);
@@ -139,6 +291,7 @@ export default function TransactionsPage() {
       description: transaction.description,
       date: transaction.date.slice(0, 10),
       tags: transaction.tags?.join(', ') || '',
+      paymentMethod: transaction.payment?.method || 'cash',
     });
     setIsAddDialogOpen(true);
   };
@@ -174,6 +327,19 @@ export default function TransactionsPage() {
   const totalExpenses = transactions
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
+
+  // Payment method statistics
+  const paymentStats = transactions.reduce((stats, transaction) => {
+    if (transaction.payment) {
+      const method = transaction.payment.method;
+      if (!stats[method]) {
+        stats[method] = { count: 0, amount: 0 };
+      }
+      stats[method].count += 1;
+      stats[method].amount += transaction.amount;
+    }
+    return stats;
+  }, {} as Record<string, { count: number; amount: number }>);
 
   if (loading) {
     return (
@@ -272,6 +438,23 @@ export default function TransactionsPage() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="paymentMethod">Payment Method</Label>
+                <Select value={formData.paymentMethod} onValueChange={(value: 'cash' | 'card' | 'upi' | 'netbanking' | 'wallet' | 'razorpay') => setFormData({...formData, paymentMethod: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="card">Card</SelectItem>
+                    <SelectItem value="upi">UPI</SelectItem>
+                    <SelectItem value="netbanking">Net Banking</SelectItem>
+                    <SelectItem value="wallet">Wallet</SelectItem>
+                    <SelectItem value="razorpay">Online Payment (Razorpay)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="tags">Tags (comma-separated)</Label>
                 <Input
                   id="tags"
@@ -282,11 +465,12 @@ export default function TransactionsPage() {
               </div>
 
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isProcessingPayment}>
                   Cancel
                 </Button>
-                <Button type="submit">
-                  {editingTransaction ? 'Update' : 'Add'} Transaction
+                <Button type="submit" disabled={isProcessingPayment}>
+                  {isProcessingPayment ? 'Processing...' : (editingTransaction ? 'Update' : 'Add')} Transaction
+                  {formData.paymentMethod === 'razorpay' && !editingTransaction && ' & Pay'}
                 </Button>
               </div>
             </form>
@@ -295,7 +479,7 @@ export default function TransactionsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Income</CardTitle>
@@ -329,6 +513,21 @@ export default function TransactionsPage() {
             <div className={`text-2xl font-bold ${totalIncome - totalExpenses >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency(totalIncome - totalExpenses)}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Online Payments</CardTitle>
+            <CreditCard className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {paymentStats.razorpay ? paymentStats.razorpay.count : 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {paymentStats.razorpay ? formatCurrency(paymentStats.razorpay.amount) : '₹0'} total
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -416,6 +615,12 @@ export default function TransactionsPage() {
                       <Badge variant="secondary">{transaction.category}</Badge>
                       {transaction.subcategory && (
                         <Badge variant="outline">{transaction.subcategory}</Badge>
+                      )}
+                      {transaction.payment && (
+                        <PaymentStatus 
+                          method={transaction.payment.method} 
+                          status={transaction.payment.status} 
+                        />
                       )}
                       <span>{formatDateISOToPreference(transaction.date)}</span>
                     </div>

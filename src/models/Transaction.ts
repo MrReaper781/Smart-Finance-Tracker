@@ -22,6 +22,15 @@ export interface ITransaction extends Document {
     };
   };
   attachments?: string[];
+  payment?: {
+    method: 'cash' | 'card' | 'upi' | 'netbanking' | 'wallet' | 'razorpay';
+    status: 'pending' | 'completed' | 'failed' | 'cancelled';
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    razorpaySignature?: string;
+    transactionId?: string;
+    gateway?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -85,6 +94,23 @@ const TransactionSchema = new Schema<ITransaction>({
     },
   },
   attachments: [String],
+  payment: {
+    method: {
+      type: String,
+      enum: ['cash', 'card', 'upi', 'netbanking', 'wallet', 'razorpay'],
+      default: 'cash',
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'completed', 'failed', 'cancelled'],
+      default: 'completed',
+    },
+    razorpayOrderId: String,
+    razorpayPaymentId: String,
+    razorpaySignature: String,
+    transactionId: String,
+    gateway: String,
+  },
 }, {
   timestamps: true,
 });
