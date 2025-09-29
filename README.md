@@ -195,4 +195,4 @@ src/
 
 ---
 
-Built with ❤️ using Next.js and modern web technologies.
+Built using Next.js and modern web technologies.
